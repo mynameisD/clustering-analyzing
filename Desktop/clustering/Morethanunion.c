@@ -14,8 +14,8 @@ void main()
   clock_t time;
   SHEET *clay=(SHEET*)malloc(sizeof(SHEET)*N_CLAY);
   POLY *chain=(POLY*)malloc(sizeof(POLY)*N_CHAIN);
-  FILE *f_filler=fopen("filler.lammpstrj","r");
-  FILE *f_chain=fopen("chains.lammpstrj","r");
+  FILE *f_filler=fopen("..//filler.lammpstrj","r");
+  FILE *f_chain=fopen("..//chains.lammpstrj","r");
   int n_entries=0;
   clearbridges();
   systeminfo();
