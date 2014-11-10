@@ -25,8 +25,10 @@ void main()
     clearinfo(clay,chain);
     readfiller(f_filler,clay);
     readchain(f_chain,chain);
+    findcom(clay);
     bridges(clay,chain);
     findunion(clay,chain);
+    groupanalyze(n_entries,clay,chain);
     n_entries++;
     printf("TIME COST: %f \n",((float)(clock()-time))/CLOCKS_PER_SEC);
     //getchar();
