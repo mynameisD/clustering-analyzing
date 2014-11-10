@@ -3,9 +3,9 @@
 #include <math.h>
 #include <assert.h>
 
-#define N_SHEETS 3800
+#define N_SHEETS 7600
 #define ENTRIES_BEFORESHEAR 1000
-#define PBC 71.538792
+#define PBC 70.0
 #define N_POLYMER 80000
 #define TYPESHEET 3
 #define TYPESTICKER 2
@@ -20,6 +20,7 @@ struct sheet{
   double elm[SIZE_SHEET][3];
   int type[SIZE_SHEET];
   int mol_id;
+  int index[SIZE_SHEET];
   int count;
   int group_id;
   double com[3];
@@ -30,6 +31,7 @@ struct sheet{
 struct poly{
   double elm[SIZE_CHAIN][3];
   int type[SIZE_CHAIN];
+  int index[SIZE_CHAIN];
   int mol_id;
   int count;
   int group_id;
@@ -47,6 +49,7 @@ void sheetcopy(SHEET *,SHEET *);
 void chaincopy(POLY *,POLY *);
 void systeminfo();
 void findcom(SHEET *);
+void sortchain(int,POLY *);
 
 void systeminfo()
 {
@@ -71,6 +74,7 @@ void clearinfo(struct sheet *s,struct poly *c)
       s[i].elm[j][0]=-10000.0;
       s[i].elm[j][1]=-10000.0;
       s[i].elm[j][2]=-10000.0;
+      s[i].index[j]=0;
       s[i].type[j]=0;
     }
     for(j=0;j<3;j++){
@@ -88,6 +92,7 @@ void clearinfo(struct sheet *s,struct poly *c)
       c[i].elm[j][1]=-10000.0;
       c[i].elm[j][2]=-10000.0;
       c[i].type[j]=0;
+      c[i].index[j]=0;
     }
   }
 }
@@ -105,6 +110,7 @@ void sheetcopy(SHEET *a,SHEET *b)
     a->elm[i][0]=b->elm[i][0];
     a->elm[i][1]=b->elm[i][1];
     a->elm[i][2]=b->elm[i][2];
+    a->index[i]=b->index[i];
     a->type[i]=b->type[i];
   }
 }
@@ -119,6 +125,7 @@ void chaincopy(POLY *a,POLY *b)
     a->elm[i][0]=b->elm[i][0];
     a->elm[i][1]=b->elm[i][1];
     a->elm[i][2]=b->elm[i][2];
+    a->index[i]=b->index[i];
     a->type[i]=b->type[i];
   }
 }
@@ -142,6 +149,7 @@ void readfiller(FILE *f,struct sheet *s)
     if(molid>N_CLAY){printf("ERROR:index of clay exceed limite\n");exit(67);}
     seq=s[molid-1].count;
     s[molid-1].mol_id=molid+N_CHAIN;
+    s[molid-1].index[seq]=index;
     s[molid-1].type[seq]=type;
     s[molid-1].elm[seq][0]=cordx;
     s[molid-1].elm[seq][1]=cordy;
@@ -169,6 +177,7 @@ void readchain(FILE *f,struct poly *c)
     seq=c[molid-1].count;
     c[molid-1].type[seq]=type;
     c[molid-1].mol_id=molid;
+    c[molid-1].index[seq]=index;
     c[molid-1].elm[seq][0]=cordx;
     c[molid-1].elm[seq][1]=cordy;
     c[molid-1].elm[seq][2]=cordz;
@@ -176,6 +185,31 @@ void readchain(FILE *f,struct poly *c)
   }
   for(i=0;i<N_CHAIN;i++){if(c[i].count!=SIZE_CHAIN){printf("ERROR,THE SIZE OF CHAIN NOT MATCH\n");exit(102);}}
   free(skip);
+}
+void sortchain(int n,POLY *p)
+{
+  int i,j,k;
+  int minindex;
+  double tempelm[3];
+  int temptype,tempindex;
+  for(i=0;i<n;i++){
+    for(j=0;j<SIZE_CHAIN;j++){
+      if(p[i].index[j]==0) printf("ERROR: INDEX OF 0\n");
+      for(k=j+1;k<SIZE_CHAIN;k++){
+	if(p[i].index[k]<p[i].index[j]){
+	  tempindex=p[i].index[j];
+	  temptype=p[i].type[j];
+	  tempelm[0]=p[i].elm[j][0];tempelm[1]=p[i].elm[j][1];tempelm[2]=p[i].elm[j][2];
+	  p[i].elm[j][0]=p[i].elm[k][0];p[i].elm[j][1]=p[i].elm[k][1];p[i].elm[j][2]=p[i].elm[k][2];
+	  p[i].type[j]=p[i].type[k];
+	  p[i].index[j]=p[i].index[k];
+	  p[i].elm[k][0]=tempelm[0];p[i].elm[k][1]=tempelm[1];p[i].elm[k][2]=tempelm[2];
+	  p[i].type[k]=temptype;
+	  p[i].index[k]=tempindex;
+	}
+      }
+    }
+  }
 }
 
 double dis(SHEET *s,POLY *p)
@@ -275,28 +309,58 @@ void vmdgroup(int step,int group_id,int ns,SHEET *s,int nc,POLY *p)
   int i,j;
   int count=0;
   int countbond=0;
-  char str[35];
-  sprintf(str,"step%dgroup%d.data",step,group_id);
-  FILE *f=fopen(str,"w");
+  char str[35],str2[35];
+  sprintf(str,"step%dgroup%d_sheet.data",step,group_id);
+  FILE *fsheet=fopen(str,"w");
+  sprintf(str2,"step%dgroup%d_poly.data",step,group_id);
+  FILE *fpoly=fopen(str2,"w");
 
-  fprintf(f,"\n%d atoms\n",ns*SIZE_SHEET+nc*SIZE_CHAIN);
-  fprintf(f,"%d bonds\n",0);
-  fprintf(f,"0 angles\n");
-  fprintf(f,"3 atom types\n");
-  fprintf(f,"1 bond types\n\n");
-  fprintf(f,"%lf %lf xlo xhi\n",0.00,PBC);
-  fprintf(f,"%lf %lf ylo yhi\n",0.00,PBC);
-  fprintf(f,"%lf %lf zlo zhi\n",0.00,PBC);
-  fprintf(f,"\n Atoms\n\n");
-  for(i=0;i<nc;i++){
-    for(j=0;j<SIZE_CHAIN;j++){
-      fprintf(f,"%d %d %d %lf %lf %lf\n",i*SIZE_CHAIN+j+1,p[i].mol_id,p[i].type[j],p[i].elm[j][0],p[i].elm[j][1],p[i].elm[j][2]);
-    }
-  }
+  fprintf(fsheet,"\n%d atoms\n",ns*SIZE_SHEET);
+  fprintf(fsheet,"%d bonds\n",0);
+  fprintf(fsheet,"0 angles\n");
+  fprintf(fsheet,"1 atom types\n");
+  fprintf(fsheet,"0 bond types\n\n");
+  fprintf(fsheet,"%lf %lf xlo xhi\n",0.00,PBC);
+  fprintf(fsheet,"%lf %lf ylo yhi\n",0.00,PBC);
+  fprintf(fsheet,"%lf %lf zlo zhi\n",0.00,PBC);
+  fprintf(fsheet,"\n Atoms\n\n");
   for(i=0;i<ns;i++){
     for(j=0;j<SIZE_SHEET;j++){
-      fprintf(f,"%d %d %d %lf %lf %lf\n",i*SIZE_SHEET+j+nc*SIZE_CHAIN+1,s[i].mol_id,s[i].type[j],s[i].elm[j][0],s[i].elm[j][1],s[i].elm[j][2]);
+      fprintf(fsheet,"%d %d %d %lf %lf %lf\n",s[i].index[j],s[i].mol_id,s[i].type[j],s[i].elm[j][0],s[i].elm[j][1],s[i].elm[j][2]);
     }
   }
-  fclose(f);
+  int nbonds=0;
+  for(i=0;i<nc;i++){
+    for(j=0;j<SIZE_CHAIN-1;j++){
+      if(fabs(p[i].elm[j][0]-p[i].elm[j+1][0])<5.0&&fabs(p[i].elm[j][1]-p[i].elm[j+1][1])<5.0&&fabs(p[i].elm[j][2]-p[i].elm[j+1][2])<5.0)
+	nbonds++;
+    }
+  }
+  fprintf(fpoly,"\n%d atoms\n",nc*SIZE_CHAIN);
+  fprintf(fpoly,"%d bonds\n",nbonds);
+  fprintf(fpoly,"0 angles\n");
+  fprintf(fpoly,"2 atom types\n");
+  fprintf(fpoly,"1 bond types\n\n");
+  fprintf(fpoly,"%lf %lf xlo xhi\n",0.00,PBC);
+  fprintf(fpoly,"%lf %lf ylo yhi\n",0.00,PBC);
+  fprintf(fpoly,"%lf %lf zlo zhi\n",0.00,PBC);
+  fprintf(fpoly,"\n Atoms\n\n");
+  for(i=0;i<nc;i++){
+    for(j=0;j<SIZE_CHAIN;j++){
+      fprintf(fpoly,"%d %d %d %lf %lf %lf\n",p[i].index[j],p[i].mol_id,p[i].type[j],p[i].elm[j][0],p[i].elm[j][1],p[i].elm[j][2]);
+    }
+  }
+  fprintf(fpoly,"\n Bonds\n\n");
+  nbonds=0;
+  for(i=0;i<nc;i++){
+    for(j=0;j<SIZE_CHAIN-1;j++){
+      if(fabs(p[i].elm[j][0]-p[i].elm[j+1][0])<5.0&&fabs(p[i].elm[j][1]-p[i].elm[j+1][1])<5.0&&fabs(p[i].elm[j][2]-p[i].elm[j+1][2])<5.0){
+	nbonds++;
+	fprintf(fpoly,"%d %d %d %d\n",nbonds,1,p[i].index[j],p[i].index[j+1]);
+      }
+    }
+  }
+  //reserved for bonds
+  fclose(fsheet);
+  fclose(fpoly);
 }

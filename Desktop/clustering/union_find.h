@@ -29,7 +29,7 @@ int findunion(SHEET *s,POLY *p)
       searchedge(&s[i],s,p);//depth first search, root node always
     }
   }
-  //printf("number of root sheet found: %d\n",countsheet);
+  printf("number of root sheet found: %d\n",countsheet);
   for(i=0;i<N_CHAIN;i++){
     if(p[i].parent==NULL){
       if(p[i].group_id!=0) printf("ERROR,CHAIN ROOT WITH GROUP ID NOT 0\n");
@@ -38,7 +38,7 @@ int findunion(SHEET *s,POLY *p)
       searchnode(&p[i],s,p);
     }
   }
-  //printf("number of root chain found: %d\n",countchain);
+  printf("number of root chain found: %d\n",countchain);
   return countchain+countsheet;
 }
 void searchedge(SHEET *this,SHEET *s,POLY *p)
@@ -116,7 +116,7 @@ void groupanalyze(int step,SHEET *s,POLY *p)
 
 
   //analyze group sequentially
-  int left,right;
+  int left,right,ntestsucc;
   for(i=0;i<group_id;i++){
     countsheet=0;
     countchain=0;
@@ -135,11 +135,14 @@ void groupanalyze(int step,SHEET *s,POLY *p)
 	  countchain++;
 	}
       }
-      vmdgroup(step,i+1,groupsize[i][0],temps,groupsize[i][1],tempc);
+      ntestsucc=0;
+      for(k=0;k<3;k++){
+	ntestsucc+=partitiontest(k,groupsize[i][0],temps,groupsize[i][1],tempc);
+      }
       for(k=0;k<3;k++){
 	spandim[k]=0;
 	clearunion(groupsize[i][0],temps,groupsize[i][1],tempc);
-	if(partitiontest(k,groupsize[i][0],temps,groupsize[i][1],tempc)==1&&pbcsplitunion(k,groupsize[i][0],temps,groupsize[i][1],tempc)==1){
+	if(ntestsucc>2&&pbcsplitunion(k,groupsize[i][0],temps,groupsize[i][1],tempc)==1){
 	  for(j=0;j<countsheet;j++){
 	    temps[j].parent=NULL;
 	    temps[j].group_id=0;
@@ -156,6 +159,7 @@ void groupanalyze(int step,SHEET *s,POLY *p)
       }
       if(spandim[0]+spandim[1]+spandim[2]>2){
 	spanlog[i]=1;
+	vmdgroup(step,i+1,groupsize[i][0],temps,groupsize[i][1],tempc);
 	printf("SPANNING GROUP %d, size %d\n",i+1,groupsize[i][0]*SIZE_SHEET+groupsize[i][1]*SIZE_CHAIN);
       }
       else spanlog[i]=0;
