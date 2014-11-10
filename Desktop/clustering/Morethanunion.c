@@ -26,6 +26,7 @@ void main()
     readfiller(f_filler,clay);
     readchain(f_chain,chain);
     findcom(clay);
+    sortchain(N_CHAIN,chain);
     bridges(clay,chain);
     findunion(clay,chain);
     groupanalyze(n_entries,clay,chain);
