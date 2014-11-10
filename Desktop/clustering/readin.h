@@ -43,7 +43,10 @@ void clearinfo(struct sheet *,struct poly *);
 void readfiller(FILE *,struct sheet *);
 void readchain(FILE *,struct poly *);
 double dis(SHEET *,POLY *);
+void sheetcopy(SHEET *,SHEET *);
+void chaincopy(POLY *,POLY *);
 void systeminfo();
+void findcom(SHEET *);
 
 void systeminfo()
 {
@@ -86,6 +89,37 @@ void clearinfo(struct sheet *s,struct poly *c)
       c[i].elm[j][2]=-10000.0;
       c[i].type[j]=0;
     }
+  }
+}
+void sheetcopy(SHEET *a,SHEET *b)
+{
+  int i;
+  a->mol_id=b->mol_id;
+  a->count=b->count;
+  a->group_id=b->group_id;
+  a->com[0]=b->com[0];a->norm[0]=b->norm[0];
+  a->com[1]=b->com[1];a->norm[1]=b->norm[1];
+  a->com[2]=b->com[2];a->norm[2]=b->norm[2];
+  a->parent=b->parent;
+  for(i=0;i<SIZE_SHEET;i++){
+    a->elm[i][0]=b->elm[i][0];
+    a->elm[i][1]=b->elm[i][1];
+    a->elm[i][2]=b->elm[i][2];
+    a->type[i]=b->type[i];
+  }
+}
+void chaincopy(POLY *a,POLY *b)
+{
+  int i;
+  a->mol_id=b->mol_id;
+  a->count=b->count;
+  a->group_id=b->group_id;
+  a->parent=b->parent;
+  for(i=0;i<SIZE_CHAIN;i++){
+    a->elm[i][0]=b->elm[i][0];
+    a->elm[i][1]=b->elm[i][1];
+    a->elm[i][2]=b->elm[i][2];
+    a->type[i]=b->type[i];
   }
 }
 void readfiller(FILE *f,struct sheet *s)
@@ -166,4 +200,103 @@ double dis(SHEET *s,POLY *p)
     }
   }
   return distance;
+}
+
+void findcom(SHEET* s)
+{
+  int i,j;
+  int left=0,right=0;
+  int debugger;
+  double comx,comy,comz;
+  SHEET temp;
+  for(i=0;i<N_CLAY;i++){
+    left=0;
+    right=0;
+    sheetcopy(&temp,&s[i]);
+    //unwrap copy
+    for(j=0;j<SIZE_SHEET;j++){
+      if(temp.elm[j][0]<(PBC/10.0)) left=1;
+      if(temp.elm[j][0]>(PBC*(9.0/10))) right=1;
+    }
+    if(left==1&&right==1){
+      for(j=0;j<SIZE_SHEET;j++){
+	if(temp.elm[j][0]<PBC/10.0) temp.elm[j][0]+=PBC;
+      }
+    }
+
+    left=0;
+    right=0;
+    for(j=0;j<SIZE_SHEET;j++){
+      if(temp.elm[j][1]<(PBC/10.0)) left=1;
+      if(temp.elm[j][1]>(PBC*9/10)) right=1;
+    }
+    if(left==1&&right==1){
+      for(j=0;j<SIZE_SHEET;j++){
+	if(temp.elm[j][1]<PBC/10.0) temp.elm[j][1]+=PBC;
+      }
+    }
+
+    left=0;
+    right=0;
+    for(j=0;j<SIZE_SHEET;j++){
+      if(temp.elm[j][2]<PBC/10.0) left=1;
+      if(temp.elm[j][2]>PBC*9/10) right=1;
+    }
+    if(left==1&&right==1){
+      for(j=0;j<SIZE_SHEET;j++){
+	if(temp.elm[j][2]<PBC/10.0) temp.elm[j][2]+=PBC;
+      }
+    }
+
+    //find com
+    comx=0.0;
+    comy=0.0;
+    comz=0.0;
+    for(j=0;j<SIZE_SHEET;j++){
+      comx+=temp.elm[j][0];
+      comy+=temp.elm[j][1];
+      comz+=temp.elm[j][2];
+    }
+    comx/=SIZE_SHEET;
+    comy/=SIZE_SHEET;
+    comz/=SIZE_SHEET;
+    //printf("%d %f %f %f\n",i+N_CHAIN+1,comx,comy,comz);
+    if(comx>PBC) comx-=PBC;
+    if(comy>PBC) comy-=PBC;
+    if(comz>PBC) comz-=PBC;
+
+    s[i].com[0]=comx;
+    s[i].com[1]=comy;
+    s[i].com[2]=comz;
+  }
+}
+void vmdgroup(int step,int group_id,int ns,SHEET *s,int nc,POLY *p)
+{
+  int i,j;
+  int count=0;
+  int countbond=0;
+  char str[35];
+  sprintf(str,"step%dgroup%d.data",step,group_id);
+  FILE *f=fopen(str,"w");
+
+  fprintf(f,"\n%d atoms\n",ns*SIZE_SHEET+nc*SIZE_CHAIN);
+  fprintf(f,"%d bonds\n",0);
+  fprintf(f,"0 angles\n");
+  fprintf(f,"3 atom types\n");
+  fprintf(f,"1 bond types\n\n");
+  fprintf(f,"%lf %lf xlo xhi\n",0.00,PBC);
+  fprintf(f,"%lf %lf ylo yhi\n",0.00,PBC);
+  fprintf(f,"%lf %lf zlo zhi\n",0.00,PBC);
+  fprintf(f,"\n Atoms\n\n");
+  for(i=0;i<nc;i++){
+    for(j=0;j<SIZE_CHAIN;j++){
+      fprintf(f,"%d %d %d %lf %lf %lf\n",i*SIZE_CHAIN+j+1,p[i].mol_id,p[i].type[j],p[i].elm[j][0],p[i].elm[j][1],p[i].elm[j][2]);
+    }
+  }
+  for(i=0;i<ns;i++){
+    for(j=0;j<SIZE_SHEET;j++){
+      fprintf(f,"%d %d %d %lf %lf %lf\n",i*SIZE_SHEET+j+nc*SIZE_CHAIN+1,s[i].mol_id,s[i].type[j],s[i].elm[j][0],s[i].elm[j][1],s[i].elm[j][2]);
+    }
+  }
+  fclose(f);
 }
