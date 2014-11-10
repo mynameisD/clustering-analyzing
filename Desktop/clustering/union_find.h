@@ -3,6 +3,7 @@ void searchnode(POLY *,SHEET *,POLY *);
 int findunion(SHEET *, POLY *);
 void group(SHEET *,POLY *);
 int spanbeta(SHEET *,POLY *);
+int loggel(int,int,int **,int *);
 
 SHEET * chainroot(POLY *);
 SHEET * noderoot(SHEET *);
@@ -157,7 +158,7 @@ void groupanalyze(int step,SHEET *s,POLY *p)
 	}
 	else spandim[k]=0;	
       }
-      if(spandim[0]+spandim[1]+spandim[2]>2){
+      if(spandim[0]+spandim[1]+spandim[2]>=2){
 	spanlog[i]=1;
 	vmdgroup(step,i+1,groupsize[i][0],temps,groupsize[i][1],tempc);
 	printf("SPANNING GROUP %d, size %d\n",i+1,groupsize[i][0]*SIZE_SHEET+groupsize[i][1]*SIZE_CHAIN);
@@ -168,6 +169,7 @@ void groupanalyze(int step,SHEET *s,POLY *p)
     }
     else spanlog[i]=0;
   }
+  loggel(step,group_id,groupsize,spanlog);
   free(groupsize);
 }
 
@@ -334,3 +336,16 @@ void clearunion(int ns,SHEET *s,int nc,POLY *p)
   }
 }
 
+int loggel(int step,int ng,int **groupsize,int *log)
+{
+  int i,j;
+  int ngel=0;
+  double per;
+  FILE *gel=fopen("percent_gel.txt","a");
+  for(i=0;i<ng;i++){
+    if(log[i]==1) ngel=ngel+groupsize[i][0]*SIZE_SHEET+groupsize[i][1]*SIZE_CHAIN;
+  }
+  per=(double)ngel/(N_POLYMER+N_SHEETS);
+  fprintf(gel,"%lf %lf\n",per,1-per);
+  fclose(gel);
+}
