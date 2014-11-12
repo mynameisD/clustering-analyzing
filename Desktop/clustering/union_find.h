@@ -116,7 +116,7 @@ void groupanalyze(int step,SHEET *s,POLY *p)
   for(i=0;i<N_CHAIN;i++) groupsize[p[i].group_id-1][1]++;
 
 
-  //analyze group sequentially
+  //analyze group sequentially,copied to new struct
   int left,right,ntestsucc;
   for(i=0;i<group_id;i++){
     countsheet=0;
@@ -158,9 +158,13 @@ void groupanalyze(int step,SHEET *s,POLY *p)
 	}
 	else spandim[k]=0;	
       }
-      if(spandim[0]+spandim[1]+spandim[2]>=2){
+      if(spandim[0]+spandim[1]+spandim[2]>=2){//more than two dim span
 	spanlog[i]=1;
-	vmdgroup(step,i+1,groupsize[i][0],temps,groupsize[i][1],tempc);
+	if(step%100==0){
+	  sortchain(groupsize[i][1],tempc);//sortchain is needed only for bond output in vmd called by groupanalyze
+	  vmdgroup(step,i+1,groupsize[i][0],temps,groupsize[i][1],tempc);
+	  vmdbackbone(step,i+1,groupsize[i][0],temps,groupsize[i][1],tempc);
+	}
 	printf("SPANNING GROUP %d, size %d\n",i+1,groupsize[i][0]*SIZE_SHEET+groupsize[i][1]*SIZE_CHAIN);
       }
       else spanlog[i]=0;
