@@ -18,6 +18,8 @@ void pbcsplitnode(int,POLY *,int,SHEET *,int,POLY *);
 int partitiontest(int,int,SHEET *,int,POLY *);
 void clearunion(int,SHEET *,int,POLY *);
 
+void vmdbackbone(int,int,int,SHEET *,int,POLY *);
+
 int findunion(SHEET *s,POLY *p)
 {
   int i,j,k;
